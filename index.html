@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe</title>
+<style>
+  :root {
+    --bg: #1e1f26;
+    --panel: #2a2c38;
+    --line: #454857;
+    --accent-x: #6ee7ff;
+    --accent-o: #ff8fb3;
+    --text: #f4f4f6;
+    --muted: #9a9cad;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 0%, #2e3040, #14151b 70%);
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+  }
+  .app {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 28px 32px 32px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    width: min(92vw, 420px);
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+  }
+  .modes {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    background: #1e1f26;
+    padding: 4px;
+    border-radius: 12px;
+  }
+  .modes button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 8px 6px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s, color 0.2s;
+  }
+  .modes button.active {
+    background: var(--line);
+    color: var(--text);
+  }
+  .status {
+    font-size: 1.05rem;
+    min-height: 28px;
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 0 auto 18px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  .cell {
+    background: #1e1f26;
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    font-size: min(12vw, 3rem);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text);
+    transition: background 0.15s, transform 0.1s;
+    user-select: none;
+  }
+  .cell:hover:not(.taken):not(.disabled) {
+    background: #262834;
+    transform: translateY(-2px);
+  }
+  .cell.taken, .cell.disabled { cursor: default; }
+  .cell.x { color: var(--accent-x); }
+  .cell.o { color: var(--accent-o); }
+  .cell.win {
+    background: rgba(110, 231, 255, 0.12);
+    border-color: var(--accent-x);
+  }
+  .scoreboard {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .score {
+    flex: 1;
+    background: #1e1f26;
+    border-radius: 10px;
+    padding: 8px 4px;
+  }
+  .score .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .score .value { font-size: 1.3rem; font-weight: 700; margin-top: 2px; }
+  .score.x .value { color: var(--accent-x); }
+  .score.o .value { color: var(--accent-o); }
+  .actions {
+    display: flex;
+    gap: 10px;
+  }
+  .actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--line);
+    color: var(--text);
+    transition: background 0.2s;
+  }
+  .actions button:hover { background: #565a6c; }
+  .actions button.primary {
+    background: linear-gradient(135deg, var(--accent-x), var(--accent-o));
+    color: #14151b;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1>TIC TAC TOE</h1>
+    <div class="subtitle">Play a friend or challenge the computer</div>
+
+    <div class="modes">
+      <button id="mode-pvp" class="active">2 Players</button>
+      <button id="mode-cpu">vs Computer</button>
+    </div>
+
+    <div class="status" id="status">X's turn</div>
+
+    <div class="board" id="board"></div>
+
+    <div class="scoreboard">
+      <div class="score x">
+        <div class="label">X wins</div>
+        <div class="value" id="score-x">0</div>
+      </div>
+      <div class="score draw">
+        <div class="label">Draws</div>
+        <div class="value" id="score-d">0</div>
+      </div>
+      <div class="score o">
+        <div class="label">O wins</div>
+        <div class="value" id="score-o">0</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="reset-round" class="primary">New Round</button>
+      <button id="reset-score">Reset Scores</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const modePvpBtn = document.getElementById('mode-pvp');
+  const modeCpuBtn = document.getElementById('mode-cpu');
+  const scoreXEl = document.getElementById('score-x');
+  const scoreOEl = document.getElementById('score-o');
+  const scoreDEl = document.getElementById('score-d');
+
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  let board = Array(9).fill(null);
+  let current = 'X';
+  let gameOver = false;
+  let vsComputer = false;
+  let scores = { X: 0, O: 0, D: 0 };
+
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.dataset.index = i;
+    cell.addEventListener('click', () => handleMove(i));
+    boardEl.appendChild(cell);
+    cells.push(cell);
+  }
+
+  modePvpBtn.addEventListener('click', () => setMode(false));
+  modeCpuBtn.addEventListener('click', () => setMode(true));
+  document.getElementById('reset-round').addEventListener('click', startRound);
+  document.getElementById('reset-score').addEventListener('click', () => {
+    scores = { X: 0, O: 0, D: 0 };
+    updateScoreboard();
+    startRound();
+  });
+
+  function setMode(cpu) {
+    vsComputer = cpu;
+    modeCpuBtn.classList.toggle('active', cpu);
+    modePvpBtn.classList.toggle('active', !cpu);
+    startRound();
+  }
+
+  function startRound() {
+    board = Array(9).fill(null);
+    current = 'X';
+    gameOver = false;
+    cells.forEach(c => {
+      c.textContent = '';
+      c.className = 'cell';
+    });
+    updateStatus();
+  }
+
+  function updateStatus(finalText) {
+    if (finalText) {
+      statusEl.textContent = finalText;
+      return;
+    }
+    statusEl.textContent = (current === 'X' ? "X's" : "O's") + ' turn' + (vsComputer && current === 'O' ? ' (computer)' : '');
+  }
+
+  function updateScoreboard() {
+    scoreXEl.textContent = scores.X;
+    scoreOEl.textContent = scores.O;
+    scoreDEl.textContent = scores.D;
+  }
+
+  function handleMove(index) {
+    if (gameOver || board[index]) return;
+    if (vsComputer && current === 'O') return; // block manual play for computer's turn
+
+    makeMove(index, current);
+
+    if (checkEnd()) return;
+
+    current = current === 'X' ? 'O' : 'X';
+    updateStatus();
+
+    if (vsComputer && current === 'O' && !gameOver) {
+      setTimeout(computerMove, 350);
+    }
+  }
+
+  function makeMove(index, player) {
+    board[index] = player;
+    const cell = cells[index];
+    cell.textContent = player;
+    cell.classList.add('taken', player.toLowerCase());
+  }
+
+  function checkEnd() {
+    const line = findWinningLine();
+    if (line) {
+      line.forEach(i => cells[i].classList.add('win'));
+      gameOver = true;
+      scores[current] += 1;
+      updateScoreboard();
+      updateStatus((current === 'X' ? "X" : "O") + ' wins!');
+      return true;
+    }
+    if (board.every(v => v)) {
+      gameOver = true;
+      scores.D += 1;
+      updateScoreboard();
+      updateStatus("It's a draw!");
+      return true;
+    }
+    return false;
+  }
+
+  function findWinningLine() {
+    for (const line of WIN_LINES) {
+      const [a, b, c] = line;
+      if (board[a] && board[a] === board[b] && board[b] === board[c]) {
+        return line;
+      }
+    }
+    return null;
+  }
+
+  function computerMove() {
+    if (gameOver) return;
+    const move = bestMove();
+    if (move === -1) return;
+    makeMove(move, 'O');
+    if (checkEnd()) return;
+    current = 'X';
+    updateStatus();
+  }
+
+  // Unbeatable computer via minimax
+  function bestMove() {
+    let best = { score: -Infinity, index: -1 };
+    for (let i = 0; i < 9; i++) {
+      if (!board[i]) {
+        board[i] = 'O';
+        const score = minimax(board, false);
+        board[i] = null;
+        if (score > best.score) {
+          best = { score, index: i };
+        }
+      }
+    }
+    return best.index;
+  }
+
+  function minimax(state, isMaximizing) {
+    const line = findWinningLineFor(state);
+    if (line) {
+      const winner = state[line[0]];
+      return winner === 'O' ? 10 : -10;
+    }
+    if (state.every(v => v)) return 0;
+
+    if (isMaximizing) {
+      let best = -Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!state[i]) {
+          state[i] = 'O';
+          best = Math.max(best, minimax(state, false));
+          state[i] = null;
+        }
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!state[i]) {
+          state[i] = 'X';
+          best = Math.min(best, minimax(state, true));
+          state[i] = null;
+        }
+      }
+      return best;
+    }
+  }
+
+  function findWinningLineFor(state) {
+    for (const line of WIN_LINES) {
+      const [a, b, c] = line;
+      if (state[a] && state[a] === state[b] && state[b] === state[c]) {
+        return line;
+      }
+    }
+    return null;
+  }
+
+  startRound();
+  updateScoreboard();
+})();
+</script>
+</body>
+</html>
